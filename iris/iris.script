@@ -1,0 +1,27 @@
+// Use USER namespace so classes are always writable in Community Edition
+set ns="USER"
+
+zn ns
+write !,"[testops] loading classes...",!
+do $system.OBJ.LoadDir("/opt/testops/src/cls","ck",,1)
+
+write !,"[testops] applying schema...",!
+do ##class(TestOps.Util.DB).ApplySchema("/opt/testops/src/sql/schema.sql")
+
+write !,"[testops] seeding admin...",!
+do ##class(TestOps.Util.DB).EnsureAdmin()
+
+zn "%SYS"
+write !,"[testops] configuring webapp...",!
+// (Re)create CSP application pointing to our REST dispatch
+do ##class(Security.Applications).Delete("/csp/testops")
+do ##class(Security.Applications).Create("/csp/testops", ns, "TestOps.Api.Dispatch")
+kill props
+set props("Enabled")=1
+set props("NameSpace")=ns
+set props("DispatchClass")="TestOps.Api.Dispatch"
+set props("AuthEnabled")=64  // Unauthenticated
+do ##class(Security.Applications).Modify("/csp/testops", .props)
+
+write !,"[testops] done",!
+halt

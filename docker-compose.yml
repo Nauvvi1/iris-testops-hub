@@ -1,0 +1,37 @@
+
+services:
+  iris:
+    build:
+      context: ./iris
+    container_name: iris-testops
+    ports:
+      - "52773:52773"   # IRIS Web / Portal
+      - "1972:1972"     # IRIS SuperServer
+    environment:
+      - IRIS_USERNAME=_SYSTEM
+      - IRIS_PASSWORD=SYS
+      - TESTOPS_ADMIN_EMAIL=admin@testops.local
+      - TESTOPS_ADMIN_PASSWORD=admin123
+    volumes:
+      - iris-data:/usr/irissys
+      - attachments:/opt/testops/attachments
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:52773/csp/sys/UtilHome.csp >/dev/null || exit 1"]
+      start_period: 90s
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  web:
+    build:
+      context: ./web
+    container_name: iris-testops-web
+    ports:
+      - "8080:80"
+    depends_on:
+      iris:
+        condition: service_healthy
+
+volumes:
+  iris-data:
+  attachments:
