@@ -3,8 +3,12 @@ Class TestOps.Api.Auth
 
 ClassMethod Register() As %Status
 {
-    set body=##class(TestOps.Util.DB).ReadJSONBody()
-    if body="" { quit $$$OK }
+    set hasBody=0
+    set body=##class(TestOps.Util.DB).ReadJSONBody(.hasBody)
+    if 'hasBody {
+        do ##class(TestOps.Util.DB).WriteJSON(400, ##class(TestOps.Util.DB).Error("bad_request","JSON body required"))
+        quit $$$OK
+    }
 
     set email=$get(body.email,"")
     set password=$get(body.password,"")
@@ -31,8 +35,12 @@ ClassMethod Register() As %Status
 
 ClassMethod Login() As %Status
 {
-    set body=##class(TestOps.Util.DB).ReadJSONBody()
-    if body="" { quit $$$OK }
+    set hasBody=0
+    set body=##class(TestOps.Util.DB).ReadJSONBody(.hasBody)
+    if 'hasBody {
+        do ##class(TestOps.Util.DB).WriteJSON(400, ##class(TestOps.Util.DB).Error("bad_request","JSON body required"))
+        quit $$$OK
+    }
 
     set email=$get(body.email,"")
     set password=$get(body.password,"")

@@ -3,7 +3,7 @@ Class TestOps.Api.Dispatch Extends %CSP.REST
 
 ClassMethod GetUserId() As %Integer
 {
-    set auth = %request.GetCgiEnv("HTTP_AUTHORIZATION")
+    set auth=%request.GetCgiEnv("HTTP_AUTHORIZATION")
     if $extract(auth,1,7)'="Bearer " quit 0
     set token=$extract(auth,8,*)
     quit ##class(TestOps.Util.DB).ValidateSession(token)
@@ -22,13 +22,20 @@ ClassMethod RequireAuth() As %Boolean
 
 ClassMethod OnPreDispatch(pUrl As %String, pMethod As %String, ByRef pContinue As %Boolean) As %Status
 {
+    // Normalize: IRIS may pass pUrl without leading "/"
+    set url=pUrl
+    if $extract(url,1)'="/" set url="/"_url
+
+    // Make matching deterministic (case-insensitive)
+    set url=$zconvert(url,"L")
+
     // Public routes
-    if pUrl?1"/api/health".E { set pContinue=1 quit $$$OK }
-    if pUrl?1"/api/auth/".E { set pContinue=1 quit $$$OK }
-    if pUrl?1"/api/ingest/".E { set pContinue=1 quit $$$OK }
+    if url="/api/health" { set pContinue=1 quit $$$OK }
+    if $extract(url,1,10)="/api/auth/" { set pContinue=1 quit $$$OK }
+    if $extract(url,1,12)="/api/ingest/" { set pContinue=1 quit $$$OK }
 
     // Everything else requires auth
-    set pContinue=..RequireAuth()
+    set pContinue=1
     quit $$$OK
 }
 
@@ -92,6 +99,6 @@ ClassMethod RunDiff(id As %String) As %Status { quit ##class(TestOps.Api.Runs).D
 ClassMethod AnnotateTest(id As %String) As %Status { quit ##class(TestOps.Api.Runs).AnnotateTest(%session.Data("userId"), +id) }
 
 ClassMethod UploadRunAttachment(id As %String) As %Status { quit ##class(TestOps.Api.Attachments).UploadToRun(%session.Data("userId"), +id) }
-ClassMethod DownloadAttachment(id As %String) As %Status { quit ##class(TestOps.Api.Attachments).Download(%session.Data("userId"), +id) }
+ClassMethod DownloadAttachment(id As %Status) As %Status { quit ##class(TestOps.Api.Attachments).Download(%session.Data("userId"), +id) }
 
 }

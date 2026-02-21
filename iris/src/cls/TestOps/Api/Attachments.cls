@@ -6,7 +6,7 @@ ClassMethod BasePath() As %String
     quit "/opt/testops/attachments"
 }
 
-ClassMethod EnsureRunAccess(userId As %Integer, runId As %Integer) As %Boolean [ ProcedureBlock = 1 ]
+ClassMethod EnsureRunAccess(userId As %Integer, runId As %Integer) As %Boolean
 {
     set row=##class(TestOps.Util.DB).QueryOne(
         "SELECT p.ownerId FROM TestOps_Run r JOIN TestOps_Project p ON p.id=r.projectId WHERE r.id=?",
@@ -23,15 +23,15 @@ ClassMethod EnsureRunAccess(userId As %Integer, runId As %Integer) As %Boolean [
         quit 0
     }
 
-    quit 1
+    quit $$$OK
 }
 
 ClassMethod UploadToRun(userId As %Integer, runId As %Integer) As %Status
 {
-    if '##class(TestOps.Api.Attachments).EnsureRunAccess(userId, runId) { quit $$$OK }
+    if '##class(TestOps.Api.Attachments).EnsureRunAccess(userId, runId) quit $$$OK
 
     set body=##class(TestOps.Util.DB).ReadJSONBody()
-    if body="" { quit $$$OK }
+    if body="" quit $$$OK
 
     set fileName=$get(body.fileName, "")
     set mime=$get(body.mime, "application/octet-stream")
@@ -42,13 +42,11 @@ ClassMethod UploadToRun(userId As %Integer, runId As %Integer) As %Status
         quit $$$OK
     }
 
-    // Simple size cap (approx)
     if $length(contentB64) > 8*1024*1024 {
         do ##class(TestOps.Util.DB).WriteJSON(413, ##class(TestOps.Util.DB).Error("payload_too_large","Attachment too large"))
         quit $$$OK
     }
 
-    // Create record to get id
     do ##class(TestOps.Util.DB).Exec(
         "INSERT INTO TestOps_Attachment(runId, fileName, mime, sizeBytes, storageKey) VALUES(?,?,?,?,?)",
         runId, fileName, mime, 0, ""
@@ -56,14 +54,12 @@ ClassMethod UploadToRun(userId As %Integer, runId As %Integer) As %Status
     set row=##class(TestOps.Util.DB).QueryOne("SELECT TOP 1 id FROM TestOps_Attachment WHERE runId=? ORDER BY id DESC", runId)
     set attId=+row.id
 
-    // Sanitize name (Windows-forbidden chars)
     set safeName=fileName
     set safeName=$translate(safeName, "\/:*?""<>|", "_________")
 
     set storageKey=attId_"-"_safeName
     set fullPath=..BasePath()_"/"_storageKey
 
-    // Decode base64 and write
     try {
         set bin=$SYSTEM.Encryption.Base64Decode(contentB64)
     } catch ex {
